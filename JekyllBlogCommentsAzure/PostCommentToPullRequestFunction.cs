@@ -139,6 +139,8 @@ namespace JekyllBlogCommentsAzure
             public string id { get; }
             public DateTime date { get; }
             public string name { get; }
+            
+            [YamlIgnore]
             public string email { get; }
 
             [YamlMember(typeof(string))]
