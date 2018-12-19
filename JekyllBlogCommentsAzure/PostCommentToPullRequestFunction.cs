@@ -30,7 +30,7 @@ namespace JekyllBlogCommentsAzure
             var allowedSite = ConfigurationManager.AppSettings["CommentWebsiteUrl"];
             var postedSite = form["comment-site"];
             if (!String.IsNullOrWhiteSpace(allowedSite) && !AreSameSites(allowedSite, postedSite))
-                return request.CreateErrorResponse(HttpStatusCode.BadRequest, $"This Jekyll comments receiever does not handle forms for '${postedSite}'. You should point to your own instance.");
+                return request.CreateErrorResponse(HttpStatusCode.BadRequest, $"This Jekyll comments receiver does not handle forms for '{postedSite}'. You should point to your own instance.");
 
             if (TryCreateCommentFromForm(form, out var comment, out var errors))
                 await CreateCommentAsPullRequest(comment);
@@ -76,8 +76,8 @@ namespace JekyllBlogCommentsAzure
 
             // Create a pull request for the new branch and file
             return await github.Repository.PullRequest.Create(repo.Id, new NewPullRequest(fileRequest.Message, newBranch.Ref, defaultBranch.Name)
-            {
-                Body = $"avatar: <img src=\"{comment.avatar}\" width=\"64\" height=\"64\" />\n\n{comment.message}"
+            {       
+                Body = $"avatar: <img src=\"https://secure.gravatar.com/avatar/{ comment.gravatar }?s=64&amp;d=retro&amp;r=pg\" width=\"64\" height=\"64\" />\n\nmessage: {comment.message}"
             });
         }
 
@@ -119,7 +119,7 @@ namespace JekyllBlogCommentsAzure
         /// </summary>
         private class Comment
         {
-            public Comment(string post_id, string message, string name, string email = null, Uri url = null, string avatar = null)
+            public Comment(string post_id, string message, string name, string email = null, Uri url = null, string gravatar = null)
             {
                 this.post_id = validPathChars.Replace(post_id, "-");
                 this.message = message;
@@ -129,8 +129,8 @@ namespace JekyllBlogCommentsAzure
 
                 date = DateTime.UtcNow;
                 id = new {this.post_id, this.name, this.message, this.date}.GetHashCode().ToString("x8");
-                if (Uri.TryCreate(avatar, UriKind.Absolute, out Uri avatarUrl))
-                    this.avatar = avatarUrl;
+
+                this.gravatar = gravatar ?? GetGravatarHash(email);
             }
 
             [YamlIgnore]
@@ -142,12 +142,35 @@ namespace JekyllBlogCommentsAzure
             public string email { get; }
 
             [YamlMember(typeof(string))]
-            public Uri avatar { get; }
+            public string gravatar { get; }
 
             [YamlMember(typeof(string))]
             public Uri url { get; }
 
             public string message { get; }
+            
+            private string GetGravatarHash(string input)
+            {
+                if(string.IsNullOrEmpty(input))
+                {
+                    return string.Empty;
+                }
+                else {
+                    using (System.Security.Cryptography.MD5 md5 = System.Security.Cryptography.MD5.Create())
+                    {
+                        byte[] inputBytes = System.Text.Encoding.ASCII.GetBytes(input.Trim().ToLower());
+                        byte[] hashBytes = md5.ComputeHash(inputBytes);
+
+                        // Convert the byte array to hexadecimal string
+                        System.Text.StringBuilder sb = new System.Text.StringBuilder();
+                        for (int i = 0; i < hashBytes.Length; i++)
+                        {
+                            sb.Append(hashBytes[i].ToString("X2"));
+                        }
+                        return sb.ToString().ToLower();
+                    }
+                }
+            }
         }
     }
 }
